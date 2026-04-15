@@ -1,0 +1,209 @@
+{
+  "entities": {
+    "Product": {
+      "title": "Product",
+      "description": "A clothing product in the store",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "Product name" },
+        "description": { "type": "string", "description": "Product description" },
+        "price": { "type": "number", "description": "Price in ETB" },
+        "originalPrice": { "type": "number", "description": "Original price in ETB before discount (optional)" },
+        "category": { "type": "string", "description": "Product category" },
+        "imageUrl": { "type": "string", "description": "URL of the primary product image" },
+        "imageUrls": { 
+          "type": "array", 
+          "items": { "type": "string" },
+          "description": "Array of additional image URLs for the gallery" 
+        },
+        "sizes": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Available sizes"
+        },
+        "colors": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Available colors"
+        },
+        "sellerId": { "type": "string", "description": "ID of the seller who uploaded the product" },
+        "sellerName": { "type": "string", "description": "Name of the seller" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp" }
+      },
+      "required": ["name", "description", "price", "category", "imageUrl", "sellerId", "createdAt"]
+    },
+    "Review": {
+      "title": "Review",
+      "description": "A user review for a product",
+      "type": "object",
+      "properties": {
+        "productId": { "type": "string", "description": "ID of the reviewed product" },
+        "userId": { "type": "string", "description": "ID of the user who wrote the review" },
+        "userName": { "type": "string", "description": "Name of the user" },
+        "userPhoto": { "type": "string", "description": "Photo URL of the user" },
+        "rating": { "type": "number", "description": "Rating from 1 to 5" },
+        "comment": { "type": "string", "description": "Review text" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp" }
+      },
+      "required": ["productId", "userId", "userName", "rating", "comment", "createdAt"]
+    },
+    "WishlistItem": {
+      "title": "WishlistItem",
+      "description": "An item in a user's wishlist",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "ID of the user" },
+        "productId": { "type": "string", "description": "ID of the product" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp" }
+      },
+      "required": ["userId", "productId", "createdAt"]
+    },
+    "Order": {
+      "title": "Order",
+      "description": "A customer order",
+      "type": "object",
+      "properties": {
+        "buyerId": { "type": "string", "description": "ID of the user who placed the order" },
+        "sellerId": { "type": "string", "description": "ID of the seller" },
+        "productId": { "type": "string", "description": "ID of the product" },
+        "productName": { "type": "string", "description": "Name of the product" },
+        "price": { "type": "number", "description": "Price of the product" },
+        "quantity": { "type": "number", "description": "Quantity ordered" },
+        "imageUrl": { "type": "string", "description": "Product image URL" },
+        "size": { "type": "string" },
+        "color": { "type": "string" },
+        "shippingDetails": { 
+          "type": "object", 
+          "properties": {
+            "region": { "type": "string" },
+            "city": { "type": "string" },
+            "postalCode": { "type": "string" },
+            "phone": { "type": "string" },
+            "shippingMethod": { "type": "string" },
+            "shippingCost": { "type": "number" }
+          }
+        },
+        "total": { "type": "number", "description": "Total order amount" },
+        "status": { "type": "string", "description": "Order status (e.g., Processing, Shipped, Delivered)" },
+        "statusHistory": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "status": { "type": "string" },
+              "date": { "type": "string" },
+              "note": { "type": "string" }
+            }
+          }
+        },
+        "paymentMethod": { "type": "string" },
+        "paymentStatus": { "type": "string" },
+        "tx_ref": { "type": "string" },
+        "estimatedDelivery": { "type": "string", "format": "date-time", "description": "Estimated delivery date" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp" }
+      },
+      "required": ["buyerId", "sellerId", "productId", "price", "shippingDetails", "status", "createdAt"]
+    },
+    "User": {
+      "title": "User",
+      "description": "A registered user",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Firebase Auth UID" },
+        "email": { "type": "string", "description": "User email address" },
+        "displayName": { "type": "string", "description": "User display name" },
+        "photoURL": { "type": "string", "description": "User photo URL" },
+        "role": { "type": "string", "description": "User role (user, seller, or admin)" },
+        "sellerVerified": { "type": "boolean", "description": "Whether the seller is verified" },
+        "balance": { "type": "number", "description": "Current balance for sellers" },
+        "bankInfo": { 
+          "type": "object", 
+          "properties": {
+            "bankName": { "type": "string" },
+            "accountNumber": { "type": "string" },
+            "accountHolder": { "type": "string" }
+          }
+        },
+        "telebirrNumber": { "type": "string", "description": "Telebirr phone number" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp" }
+      },
+      "required": ["uid", "email", "displayName", "role", "createdAt"]
+    },
+    "PayoutRequest": {
+      "title": "PayoutRequest",
+      "description": "A request from a seller to withdraw funds",
+      "type": "object",
+      "properties": {
+        "sellerId": { "type": "string" },
+        "sellerName": { "type": "string" },
+        "amount": { "type": "number" },
+        "status": { "type": "string", "enum": ["Pending", "Paid", "Rejected"] },
+        "paymentMethod": { "type": "string" },
+        "paymentDetails": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "processedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["sellerId", "sellerName", "amount", "status", "createdAt"]
+    },
+    "SellerApplication": {
+      "title": "SellerApplication",
+      "description": "An application from a user to become a seller",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "userEmail": { "type": "string" },
+        "fullName": { "type": "string" },
+        "phoneNumber": { "type": "string" },
+        "idFrontUrl": { "type": "string" },
+        "idBackUrl": { "type": "string" },
+        "status": { "type": "string", "enum": ["Pending", "Approved", "Rejected"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "fullName", "phoneNumber", "idFrontUrl", "idBackUrl", "status", "createdAt"]
+    },
+    "AdminStats": {
+      "title": "AdminStats",
+      "description": "Global statistics for the admin",
+      "type": "object",
+      "properties": {
+        "totalProfit": { "type": "number" },
+        "totalSales": { "type": "number" },
+        "lastUpdated": { "type": "string", "format": "date-time" }
+      }
+    }
+  },
+  "firestore": {
+    "/products/{productId}": {
+      "schema": { "$ref": "#/entities/Product" },
+      "description": "Store products"
+    },
+    "/reviews/{reviewId}": {
+      "schema": { "$ref": "#/entities/Review" },
+      "description": "Product reviews"
+    },
+    "/wishlist/{itemId}": {
+      "schema": { "$ref": "#/entities/WishlistItem" },
+      "description": "User wishlist items"
+    },
+    "/orders/{orderId}": {
+      "schema": { "$ref": "#/entities/Order" },
+      "description": "Customer orders"
+    },
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "Registered users"
+    },
+    "/payoutRequests/{requestId}": {
+      "schema": { "$ref": "#/entities/PayoutRequest" },
+      "description": "Seller payout requests"
+    },
+    "/sellerApplications/{appId}": {
+      "schema": { "$ref": "#/entities/SellerApplication" },
+      "description": "Applications to become a seller"
+    },
+    "/adminStats/global": {
+      "schema": { "$ref": "#/entities/AdminStats" },
+      "description": "Global admin statistics"
+    }
+  }
+}

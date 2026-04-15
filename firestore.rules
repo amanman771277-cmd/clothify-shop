@@ -1,0 +1,243 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: products
+    // Document ID: auto-generated
+    // Fields:
+    //   - name: string (required, < 100 chars)
+    //   - description: string (required, < 2000 chars)
+    //   - price: number (required, > 0)
+    //   - originalPrice: number (optional, > 0)
+    //   - category: string (required, < 50 chars)
+    //   - imageUrl: string (required, valid URL, < 1000 chars)
+    //   - imageUrls: list of strings (optional, valid URLs, max 10)
+    //   - sizes: list of strings (optional, max 20)
+    //   - colors: list of strings (optional, max 20)
+    //   - createdAt: timestamp (required, immutable)
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isSuperAdmin() {
+      return isAuthenticated() && (
+        request.auth.uid == 'pDS9I0dPdCOx8Eh5SVoWqqLK0V62' || 
+        (request.auth.token.email != null && request.auth.token.email == 'amanuelyohannes929@gmail.com')
+      );
+    }
+
+    function isSeller() {
+      return isAuthenticated() && (
+        isSuperAdmin() || (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'seller')
+      );
+    }
+
+    function isAdmin() {
+      return isSuperAdmin() || (
+        isAuthenticated() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
+      );
+    }
+
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    function isValidUrl(url) {
+      return url is string && url.size() < 1000 && (url.matches("^https://.*") || url.matches("^http://.*") || url.matches("^data:image/.*"));
+    }
+
+    function isValidImageUrlsList(urls) {
+      return urls is list && urls.size() <= 10;
+    }
+
+    function isValidStringList(items) {
+      return items is list && items.size() <= 20;
+    }
+
+    function isValidProduct(data) {
+      return hasOnlyAllowedFields(['name', 'description', 'price', 'originalPrice', 'category', 'imageUrl', 'imageUrls', 'sizes', 'colors', 'createdAt', 'sellerId', 'sellerName', 'isAvailable', 'status']) &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             data.description is string && data.description.size() > 0 && data.description.size() < 2000 &&
+             data.price is number && data.price >= 0 &&
+             (!('originalPrice' in data) || (data.originalPrice is number && data.originalPrice >= 0)) &&
+             data.category is string && data.category.size() > 0 && data.category.size() < 50 &&
+             isValidUrl(data.imageUrl) &&
+             (!('imageUrls' in data) || isValidImageUrlsList(data.imageUrls)) &&
+             (!('sizes' in data) || isValidStringList(data.sizes)) &&
+             (!('colors' in data) || isValidStringList(data.colors)) &&
+             data.sellerId is string && data.sellerId.size() > 0 &&
+             (!('sellerName' in data) || (data.sellerName is string && data.sellerName.size() < 100)) &&
+             (!('isAvailable' in data) || data.isAvailable is bool) &&
+             (!('status' in data) || data.status is string) &&
+             data.createdAt is timestamp;
+    }
+
+    function areImmutableFieldsUnchanged(fields) {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(fields);
+    }
+
+    function isValidReview(data) {
+      return hasOnlyAllowedFields(['productId', 'userId', 'userName', 'userPhoto', 'rating', 'comment', 'createdAt']) &&
+             data.productId is string && data.productId.size() > 0 &&
+             data.userId is string && data.userId == request.auth.uid &&
+             data.userName is string && data.userName.size() > 0 && data.userName.size() < 100 &&
+             (!('userPhoto' in data) || (data.userPhoto is string && data.userPhoto.size() < 1000)) &&
+             data.rating is number && data.rating >= 1 && data.rating <= 5 &&
+             data.comment is string && data.comment.size() <= 1000 &&
+             data.createdAt is timestamp;
+    }
+
+    function isValidWishlistItem(data) {
+      return hasOnlyAllowedFields(['userId', 'productId', 'createdAt']) &&
+             data.userId is string && data.userId == request.auth.uid &&
+             data.productId is string && data.productId.size() > 0 &&
+             data.createdAt is timestamp;
+    }
+
+    function isValidOrder(data) {
+      return hasOnlyAllowedFields(['buyerId', 'sellerId', 'productId', 'productName', 'price', 'quantity', 'imageUrl', 'size', 'color', 'shippingDetails', 'total', 'status', 'statusHistory', 'estimatedDelivery', 'paymentMethod', 'paymentStatus', 'tx_ref', 'createdAt']) &&
+             data.buyerId is string && data.buyerId == request.auth.uid &&
+             data.sellerId is string &&
+             data.productId is string &&
+             data.price is number && data.price >= 0 &&
+             data.shippingDetails is map &&
+             data.status is string && data.status in ['Processing', 'Shipped', 'Delivered'] &&
+             (!('statusHistory' in data) || data.statusHistory is list) &&
+             data.createdAt is timestamp;
+    }
+
+    function isValidUser(data) {
+      return hasOnlyAllowedFields(['uid', 'email', 'displayName', 'photoURL', 'role', 'createdAt', 'balance', 'bankInfo', 'telebirrNumber', 'sellerVerified', 'sellerInfo']) &&
+             data.uid is string && data.uid == request.auth.uid &&
+             data.email is string &&
+             data.displayName is string &&
+             (!('photoURL' in data) || data.photoURL is string) &&
+             data.role in ['user', 'seller', 'admin'] &&
+             (!('balance' in data) || data.balance is number) &&
+             (!('bankInfo' in data) || data.bankInfo is map) &&
+             (!('telebirrNumber' in data) || data.telebirrNumber is string) &&
+             (!('sellerVerified' in data) || data.sellerVerified is bool) &&
+             (!('sellerInfo' in data) || data.sellerInfo is map) &&
+             data.createdAt is timestamp;
+    }
+
+    function isValidPayoutRequest(data) {
+      return hasOnlyAllowedFields(['sellerId', 'sellerName', 'amount', 'status', 'paymentMethod', 'paymentDetails', 'createdAt', 'processedAt']) &&
+             data.sellerId is string && data.sellerId == request.auth.uid &&
+             data.sellerName is string &&
+             data.amount is number && data.amount > 0 &&
+             data.status is string && data.status in ['Pending', 'Paid', 'Rejected'] &&
+             data.createdAt is timestamp;
+    }
+
+    function isValidNotification(data) {
+      return hasOnlyAllowedFields(['userId', 'message', 'read', 'createdAt', 'type']) &&
+             data.userId is string && data.userId.size() > 0 &&
+             data.message is string && data.message.size() > 0 && data.message.size() < 1000 &&
+             data.read is bool &&
+             data.type is string &&
+             data.createdAt is timestamp;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /products/{productId} {
+      // Anyone can read products
+      allow read: if true;
+
+      // Admin or Seller can create, update, delete
+      allow create: if (isAdmin() || isSeller()) && hasRequiredFields(['name', 'description', 'price', 'category', 'imageUrl', 'sellerId', 'createdAt']) && isValidProduct(request.resource.data) && request.resource.data.sellerId == request.auth.uid;
+      allow update: if (isAdmin() || isSeller()) && isValidProduct(request.resource.data) && 
+                    (!('createdAt' in resource.data) || request.resource.data.createdAt == resource.data.createdAt) &&
+                    (!('sellerId' in resource.data) || request.resource.data.sellerId == resource.data.sellerId) && 
+                    (isSuperAdmin() || resource.data.sellerId == request.auth.uid || !('sellerId' in resource.data));
+      allow delete: if isAdmin() || (isSeller() && resource.data.sellerId == request.auth.uid);
+    }
+
+    match /reviews/{reviewId} {
+      allow read: if true;
+      allow create: if isAuthenticated() && hasRequiredFields(['productId', 'userId', 'userName', 'rating', 'comment', 'createdAt']) && isValidReview(request.resource.data);
+      allow update: if isAuthenticated() && resource.data.userId == request.auth.uid && isValidReview(request.resource.data) && areImmutableFieldsUnchanged(['createdAt', 'productId', 'userId']);
+      allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+
+    match /wishlist/{itemId} {
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated() && hasRequiredFields(['userId', 'productId', 'createdAt']) && isValidWishlistItem(request.resource.data);
+      allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+
+    match /orders/{orderId} {
+      allow read: if isAuthenticated() && (
+        resource.data.buyerId == request.auth.uid || 
+        isSuperAdmin() || 
+        (isSeller() && resource.data.sellerId == request.auth.uid)
+      );
+      allow create: if isAuthenticated() && hasRequiredFields(['buyerId', 'sellerId', 'productId', 'price', 'shippingDetails', 'status', 'createdAt']) && isValidOrder(request.resource.data);
+      allow update: if isSuperAdmin() || (
+        isAuthenticated() && 
+        resource.data.buyerId == request.auth.uid && 
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['paymentStatus']) &&
+        request.resource.data.paymentStatus in ['Pending', 'Paid', 'Failed']
+      ) || (
+        isSeller() && resource.data.sellerId == request.auth.uid &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'statusHistory']) &&
+        request.resource.data.status in ['Processing', 'Shipped', 'Delivered']
+      );
+      allow delete: if false; // Orders cannot be deleted
+    }
+
+    match /users/{userId} {
+      allow read: if isSuperAdmin() || request.auth.uid == userId;
+      allow create: if isAuthenticated() && request.auth.uid == userId && isValidUser(request.resource.data) && request.resource.data.role == 'user';
+      allow update: if (isSuperAdmin() && areImmutableFieldsUnchanged(['uid', 'email', 'createdAt'])) || 
+                    (request.auth.uid == userId && areImmutableFieldsUnchanged(['uid', 'email', 'createdAt', 'role', 'balance']) && isValidUser(request.resource.data));
+    }
+
+    match /payoutRequests/{requestId} {
+      allow read: if isSuperAdmin() || (isAuthenticated() && resource.data.sellerId == request.auth.uid);
+      allow create: if isSeller() && hasRequiredFields(['sellerId', 'sellerName', 'amount', 'status', 'createdAt']) && isValidPayoutRequest(request.resource.data) && request.resource.data.status == 'Pending';
+      allow update: if isSuperAdmin() && areImmutableFieldsUnchanged(['sellerId', 'amount', 'createdAt']);
+      allow delete: if false;
+    }
+
+    match /sellerApplications/{appId} {
+      allow read: if isSuperAdmin() || (isAuthenticated() && resource.data.userId == request.auth.uid);
+      allow create: if isAuthenticated() && hasRequiredFields(['userId', 'fullName', 'phoneNumber', 'idFrontUrl', 'idBackUrl', 'status', 'createdAt']);
+      allow update: if isSuperAdmin();
+      allow delete: if isSuperAdmin();
+    }
+
+    match /adminStats/{docId} {
+      allow read: if isSuperAdmin();
+      allow write: if false; // Only via backend/admin SDK
+    }
+
+    match /notifications/{notificationId} {
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated() && isValidNotification(request.resource.data) && (
+        isSuperAdmin() || 
+        request.resource.data.userId == request.auth.uid || 
+        request.resource.data.type == 'new_sale'
+      );
+      allow update: if isAuthenticated() && resource.data.userId == request.auth.uid && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
+      allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+  }
+}
