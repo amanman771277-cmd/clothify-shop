@@ -43,7 +43,7 @@ export default function App() {
       <WishlistProvider>
         <CompareProvider>
           <CartProvider>
-            <Router>
+            <Router basename="/clothify-shop/">
               <ScrollToTop />
               <div className="min-h-screen bg-white font-sans text-slate-900 selection:bg-slate-200">
                 <Navbar />
