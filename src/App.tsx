@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
+import { HashRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { CartProvider } from './contexts/CartContext';
 import { WishlistProvider } from './contexts/WishlistContext';
@@ -43,7 +43,7 @@ export default function App() {
       <WishlistProvider>
         <CompareProvider>
           <CartProvider>
-            <Router basename={import.meta.env.BASE_URL}>
+            <Router>
               <ScrollToTop />
               <div className="min-h-screen bg-white font-sans text-slate-900 selection:bg-slate-200">
                 <Navbar />
