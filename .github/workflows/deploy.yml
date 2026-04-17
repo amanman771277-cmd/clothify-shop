@@ -34,7 +34,9 @@ jobs:
         run: npm install
         
       - name: Build
-        run: npm run build -- --base=/clothify-shop/
+        run: |
+          npm run build -- --base=/clothify-shop/
+          cp dist/index.html dist/404.html
         
       - name: Setup Pages
         uses: actions/configure-pages@v4
