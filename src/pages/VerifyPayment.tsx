@@ -87,7 +87,7 @@ export const VerifyPayment: React.FC = () => {
     };
 
     verifyTransaction();
-  }, [tx_ref, order_id, navigate, t]);
+  }, [tx_ref, navigate, t]);
 
   return (
     <div className="min-h-[60vh] flex items-center justify-center px-4">

@@ -74,28 +74,27 @@ export const Home: React.FC = () => {
         if (viewHistory.length > 0) {
           try {
             const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-            const productSummary = fetched.map(p => ({ id: p.id, name: p.name, category: p.category }));
+            
+            // Limit payload size to prevent proxy 500 errors (Rpc failed due to xhr error)
+            const recentViews = viewHistory.slice(0, 5).map(v => v.name).join(', ');
+            const productSummary = fetched.slice(0, 30).map(p => ({ id: p.id, name: p.name, category: p.category }));
+            
             const prompt = `
-              You are an AI recommendation engine for an e-commerce clothing store.
-              The user has recently viewed the following products:
-              ${JSON.stringify(viewHistory)}
+              As an AI recommendation engine for an e-commerce clothing store.
+              User recently viewed products similar to: ${recentViews}
               
-              Here is the list of available products:
+              Available products:
               ${JSON.stringify(productSummary)}
               
-              Based on the user's view history, sort the available products so that the most relevant ones are at the beginning.
-              Return ONLY a JSON array of product IDs in the recommended order.
+              Sort the available product IDs so the most relevant ones are first.
+              Return ONLY a valid JSON array of product ID strings.
             `;
             
             const response = await ai.models.generateContent({
               model: "gemini-3-flash-preview",
               contents: prompt,
               config: {
-                responseMimeType: "application/json",
-                responseSchema: {
-                  type: Type.ARRAY,
-                  items: { type: Type.STRING }
-                }
+                responseMimeType: "application/json"
               }
             });
             
