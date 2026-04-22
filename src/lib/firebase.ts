@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut } from 'firebase/auth';
-import { getFirestore, doc, getDoc, setDoc } from 'firebase/firestore';
+import { getFirestore } from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
 
 const app = initializeApp(firebaseConfig);
@@ -8,67 +8,47 @@ export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
 export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
 
-// IMPORTANT: Check for redirect results on page load
-// This catches the user returning from Google after signInWithRedirect
-getRedirectResult(auth).then(async (result) => {
-  if (result?.user) {
-    const user = result.user;
-    const userRef = doc(db, 'users', user.uid);
-    const userSnap = await getDoc(userRef);
-    if (!userSnap.exists()) {
-      await setDoc(userRef, {
-        uid: user.uid,
-        email: user.email,
-        displayName: user.displayName || 'User',
-        photoURL: user.photoURL || '',
-        role: 'user',
-        createdAt: new Date()
-      });
-    }
-  }
-}).catch((error) => {
+// Catch the user returning from Google after signInWithRedirect
+// We no longer need to save the user to Firestore here, as AuthContext handles it via onAuthStateChanged
+getRedirectResult(auth).catch((error) => {
   console.error("Redirect Login Error:", error);
 });
 
 export const loginWithGoogle = async () => {
-  try {
-    // 1. First try with Popup (works on Desktop and AI Studio Preview)
-    const result = await signInWithPopup(auth, googleProvider);
-    const user = result.user;
-    
-    // Save user to Firestore
-    const userRef = doc(db, 'users', user.uid);
-    const userSnap = await getDoc(userRef);
-    
-    if (!userSnap.exists()) {
-      await setDoc(userRef, {
-        uid: user.uid,
-        email: user.email,
-        displayName: user.displayName || 'User',
-        photoURL: user.photoURL || '',
-        role: 'user',
-        createdAt: new Date()
-      });
-    }
-  } catch (error: any) {
-    console.error("Error signing in with Google:", error);
-    
-    if (error.code === 'auth/popup-blocked' || error.code === 'auth/cancelled-popup-request') {
-      // 2. If Popup fails (because of GitHub Pages COOP headers or Mobile Browser block)
-      //    We fallback to Redirect method.
-      const userAgrees = window.confirm(
-        "የስልክዎ/የአሳሽዎ (Browser) Popup ስለተዘጋ በቀጥታ መግባት አልተቻለም።\n\nወደ Google Login Browser ልውሰድዎ?"
-      );
-      
-      if (userAgrees) {
-        // Redirection will change the window location to Google and return back.
-        await signInWithRedirect(auth, googleProvider);
+  const isIframe = window !== window.parent;
+  
+  // 1. If in an iframe (e.g., AI Studio Preview), always try Popup because Redirect might be blocked.
+  if (isIframe) {
+    try {
+      await signInWithPopup(auth, googleProvider);
+    } catch(err: any) {
+      if (err.code !== 'auth/popup-closed-by-user' && err.code !== 'auth/cancelled-popup-request') {
+        alert(`Login failed (Preview): ${err.message}`);
       }
-    } else if (error.code === 'auth/popup-closed-by-user') {
-      // User manually closed the popup, do nothing.
-      console.log("User closed the popup.");
-    } else {
-      alert(`Login failed: ${error.message}`);
+    }
+    return;
+  }
+
+  // 2. Outside iframe (Online Website). Mobile browsers commonly block popups or open "about:blank"
+  //    so we explicitly use Direct Redirect for them without trying Popup first.
+  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+  
+  if (isMobile) {
+    // Navigate directly without showing about:blank
+    await signInWithRedirect(auth, googleProvider);
+  } else {
+    // Desktop Online Website - Try Popup first
+    try {
+      await signInWithPopup(auth, googleProvider);
+    } catch (error: any) {
+      console.error("Error signing in with Google:", error);
+      
+      // If popup fails or is blocked on desktop too, fallback to Redirect
+      if (error.code === 'auth/popup-blocked' || error.code === 'auth/cancelled-popup-request' || error.message?.includes('about:blank')) {
+        await signInWithRedirect(auth, googleProvider);
+      } else if (error.code !== 'auth/popup-closed-by-user') {
+        alert(`Login failed: ${error.message}`);
+      }
     }
   }
 };

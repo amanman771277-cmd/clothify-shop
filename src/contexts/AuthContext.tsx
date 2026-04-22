@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, onAuthStateChanged } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { auth, db, loginWithGoogle, logout } from '../lib/firebase';
 
 interface AuthContextType {
@@ -32,19 +32,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setIsSuperAdmin(isSuper);
         
         try {
-          const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
+          const userDocRef = doc(db, 'users', currentUser.uid);
+          const userDoc = await getDoc(userDocRef);
+          
           if (userDoc.exists()) {
             const data = userDoc.data();
             setUserData(data);
             setIsAdmin(isSuper || data.role === 'admin');
             setIsSeller(isSuper || data.role === 'seller');
           } else {
-            setUserData(null);
+            // Automatically create the user in Firestore if they don't exist
+            // This is especially important for signInWithRedirect
+            const newUserData = {
+              uid: currentUser.uid,
+              email: currentUser.email,
+              displayName: currentUser.displayName || 'User',
+              photoURL: currentUser.photoURL || '',
+              role: 'user',
+              createdAt: new Date()
+            };
+            await setDoc(userDocRef, newUserData);
+            setUserData(newUserData);
             setIsAdmin(isSuper);
             setIsSeller(isSuper);
           }
         } catch (error) {
-          console.error("Error fetching user data:", error);
+          console.error("Error fetching/creating user data:", error);
           setIsAdmin(isSuper);
           setIsSeller(isSuper);
         }
