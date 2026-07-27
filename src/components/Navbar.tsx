@@ -10,7 +10,7 @@ import { useTranslation } from 'react-i18next';
 
 export const Navbar: React.FC = () => {
   const { t } = useTranslation();
-  const { user, isAdmin, isSeller, isSuperAdmin, login, logout } = useAuth();
+  const { user, isAdmin, isSeller, isSuperAdmin, logout } = useAuth();
   const { items, setIsCartOpen } = useCart();
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
@@ -222,9 +222,9 @@ export const Navbar: React.FC = () => {
                       <LogOut className="w-4 h-4" /> {t('common.logout')}
                     </button>
                   ) : (
-                    <button onClick={() => { login(); setIsDropdownOpen(false); }} className="flex w-full items-center gap-3 px-4 py-2 text-slate-700 hover:bg-slate-50">
-                      <User className="w-4 h-4" /> {t('common.login')}
-                    </button>
+                    <Link to="/auth" onClick={() => setIsDropdownOpen(false)} className="flex w-full items-center gap-3 px-4 py-2 text-slate-700 hover:bg-slate-50">
+                      <User className="w-4 h-4" /> Sign up / Login
+                    </Link>
                   )}
                 </div>
               )}

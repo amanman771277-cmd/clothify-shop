@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { auth, db, loginWithGoogle, logout } from '../lib/firebase';
+import { auth, db, logout } from '../lib/firebase';
 
 interface AuthContextType {
   user: User | null;
@@ -10,7 +10,6 @@ interface AuthContextType {
   isAdmin: boolean;
   isSeller: boolean;
   isSuperAdmin: boolean;
-  login: () => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -73,7 +72,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, userData, loading, isAdmin, isSeller, isSuperAdmin, login: loginWithGoogle, logout }}>
+    <AuthContext.Provider value={{ user, userData, loading, isAdmin, isSeller, isSuperAdmin, logout }}>
       {children}
     </AuthContext.Provider>
   );

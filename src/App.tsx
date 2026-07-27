@@ -19,6 +19,7 @@ import { OrderConfirmation } from './pages/OrderConfirmation';
 import { SellerDashboard } from './pages/SellerDashboard';
 import { SuperAdmin } from './pages/SuperAdmin';
 import { SellerVerification } from './pages/SellerVerification';
+import { Auth } from './pages/Auth';
 import { useTranslation } from 'react-i18next';
 
 function ScrollToTop() {
@@ -58,6 +59,7 @@ export default function App() {
                     <Route path="/profile" element={<Profile />} />
                     <Route path="/checkout" element={<Checkout />} />
                     <Route path="/orders" element={<Orders />} />
+                    <Route path="/auth" element={<Auth />} />
                     <Route path="/seller" element={<SellerDashboard />} />
                     <Route path="/super-admin" element={<SuperAdmin />} />
                     <Route path="/verify-payment" element={<VerifyPayment />} />
