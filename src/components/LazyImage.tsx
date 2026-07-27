@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 
 interface LazyImageProps extends React.ImgHTMLAttributes<HTMLImageElement> {
-  src: string;
+  src?: string | null;
   alt: string;
   className?: string;
   imgClassName?: string;
@@ -9,8 +9,8 @@ interface LazyImageProps extends React.ImgHTMLAttributes<HTMLImageElement> {
 }
 
 // Helper to generate responsive image URLs
-const getOptimizedUrls = (originalSrc: string) => {
-  if (!originalSrc) return { src: originalSrc, srcSet: undefined };
+const getOptimizedUrls = (originalSrc: string | null | undefined) => {
+  if (!originalSrc) return { src: '', srcSet: undefined };
 
   // Handle Cloudinary URLs
   if (originalSrc.includes('res.cloudinary.com')) {
@@ -55,7 +55,30 @@ const getOptimizedUrls = (originalSrc: string) => {
 
 export const LazyImage: React.FC<LazyImageProps> = ({ src, alt, className = '', imgClassName = '', style, ...props }) => {
   const [loaded, setLoaded] = useState(false);
+
+  if (!src) {
+    return (
+      <div 
+        className={`relative bg-slate-100 flex items-center justify-center ${className}`} 
+        style={style}
+      >
+        {/* Render placeholder background only */}
+      </div>
+    );
+  }
+
   const { src: optimizedSrc, srcSet } = getOptimizedUrls(src);
+
+  if (!optimizedSrc) {
+    return (
+      <div 
+        className={`relative bg-slate-100 flex items-center justify-center ${className}`} 
+        style={style}
+      >
+        {/* Render placeholder background only */}
+      </div>
+    );
+  }
 
   return (
     <div className={`relative overflow-hidden bg-slate-200 ${className}`}>

@@ -127,6 +127,7 @@ export const Admin: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [error, setError] = useState<FirestoreErrorInfo | null>(null);
 
@@ -406,12 +407,12 @@ export const Admin: React.FC = () => {
   };
 
   const handleDelete = async (product: Product) => {
-    if (!window.confirm("Are you sure you want to delete this product?")) return;
     setError(null);
     try {
       await deleteDoc(doc(db, 'products', product.id));
       setProducts(products.filter(p => p.id !== product.id));
       if (editingId === product.id) cancelEdit();
+      setDeleteConfirmId(null);
     } catch (error) {
       setError(handleFirestoreError(error, OperationType.DELETE, `products/${product.id}`));
     }
@@ -573,20 +574,39 @@ export const Admin: React.FC = () => {
                     <div className="flex items-center gap-2">
                       {(isSuperAdmin || product.sellerId === user?.uid) && (
                         <>
-                          <button 
-                            onClick={() => handleEdit(product)}
-                            className="p-2 text-slate-400 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
-                            title="Edit product"
-                          >
-                            <Edit2 className="w-5 h-5" />
-                          </button>
-                          <button 
-                            onClick={() => handleDelete(product)}
-                            className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                            title="Delete product"
-                          >
-                            <Trash2 className="w-5 h-5" />
-                          </button>
+                          {deleteConfirmId === product.id ? (
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => handleDelete(product)}
+                                className="px-3 py-1.5 text-xs font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors"
+                              >
+                                Confirm
+                              </button>
+                              <button
+                                onClick={() => setDeleteConfirmId(null)}
+                                className="px-3 py-1.5 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          ) : (
+                            <>
+                              <button 
+                                onClick={() => handleEdit(product)}
+                                className="p-2 text-slate-400 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
+                                title="Edit product"
+                              >
+                                <Edit2 className="w-5 h-5" />
+                              </button>
+                              <button 
+                                onClick={() => setDeleteConfirmId(product.id)}
+                                className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                title="Delete product"
+                              >
+                                <Trash2 className="w-5 h-5" />
+                              </button>
+                            </>
+                          )}
                         </>
                       )}
                     </div>
