@@ -13,20 +13,22 @@ export const Profile: React.FC = () => {
   const [displayName, setDisplayName] = useState(userData?.displayName || '');
   const [phoneNumber, setPhoneNumber] = useState(userData?.phoneNumber || '');
   const [updating, setUpdating] = useState(false);
+  const [statusMsg, setStatusMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const handleUpdate = async () => {
     if (!user) return;
     setUpdating(true);
+    setStatusMsg(null);
     try {
       await updateDoc(doc(db, 'users', user.uid), {
         displayName,
         phoneNumber
       });
       setIsEditing(false);
-      alert("Profile updated successfully!");
-    } catch (error) {
+      setStatusMsg({ type: 'success', text: 'Profile updated successfully!' });
+    } catch (error: any) {
       console.error("Error updating profile:", error);
-      alert("Failed to update profile.");
+      setStatusMsg({ type: 'error', text: error?.message || 'Failed to update profile.' });
     } finally {
       setUpdating(false);
     }
@@ -45,6 +47,11 @@ export const Profile: React.FC = () => {
 
       <h1 className="text-3xl font-bold text-slate-900 mb-8">{t('common.my_account')}</h1>
       <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm">
+        {statusMsg && (
+          <div className={`mb-6 p-3.5 rounded-xl text-sm border ${statusMsg.type === 'success' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-red-50 text-red-700 border-red-200'}`}>
+            {statusMsg.text}
+          </div>
+        )}
         <div className="flex items-center gap-4 mb-8">
           <LazyImage src={user?.photoURL || ''} alt={displayName} className="w-20 h-20 rounded-full border-2 border-slate-100" />
           <div>

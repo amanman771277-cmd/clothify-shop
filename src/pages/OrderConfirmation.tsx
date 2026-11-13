@@ -6,18 +6,28 @@ import { CheckCircle2, Truck, CreditCard, Calendar, ArrowRight } from 'lucide-re
 import { LazyImage } from '../components/LazyImage';
 
 import { useTranslation } from 'react-i18next';
+import { useAuth } from '../contexts/AuthContext';
 
 export const OrderConfirmation: React.FC = () => {
   const { t } = useTranslation();
   const { orderId: tx_ref } = useParams<{ orderId: string }>();
+  const { user, loading: authLoading } = useAuth();
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchOrders = async () => {
-      if (!tx_ref) return;
+      if (authLoading) return;
+      if (!tx_ref || !user) {
+        setLoading(false);
+        return;
+      }
       try {
-        const q = query(collection(db, 'orders'), where('tx_ref', '==', tx_ref));
+        const q = query(
+          collection(db, 'orders'),
+          where('tx_ref', '==', tx_ref),
+          where('buyerId', '==', user.uid)
+        );
         const snapshot = await getDocs(q);
         if (!snapshot.empty) {
           setOrders(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
@@ -29,7 +39,7 @@ export const OrderConfirmation: React.FC = () => {
       }
     };
     fetchOrders();
-  }, [tx_ref]);
+  }, [tx_ref, user, authLoading]);
 
   if (loading) {
     return (

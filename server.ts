@@ -1,3 +1,4 @@
+import "dotenv/config";
 import express from "express";
 import { createServer as createViteServer } from "vite";
 import path from "path";
@@ -7,6 +8,18 @@ import admin from "firebase-admin";
 import fs from "fs";
 import { v2 as cloudinary } from "cloudinary";
 import multer from "multer";
+import { GoogleGenAI, Type } from "@google/genai";
+
+function getGeminiClient() {
+  return new GoogleGenAI({
+    apiKey: process.env.GEMINI_API_KEY,
+    httpOptions: {
+      headers: {
+        "User-Agent": "aistudio-build",
+      },
+    },
+  });
+}
 
 // Configure Cloudinary
 cloudinary.config({
@@ -184,6 +197,70 @@ async function startServer() {
     } catch (error) {
       console.error("Cloudinary upload error:", error);
       res.status(500).json({ error: "Failed to upload image" });
+    }
+  });
+
+  // Server-side AI Product Recommendations
+  app.post("/api/recommendations", async (req, res) => {
+    try {
+      const { recentViews, products } = req.body;
+
+      if (!recentViews || !Array.isArray(products) || products.length === 0) {
+        return res.json({ sortedIds: [] });
+      }
+
+      if (!process.env.GEMINI_API_KEY) {
+        return res.status(500).json({ error: "GEMINI_API_KEY is not configured on the server." });
+      }
+
+      const ai = getGeminiClient();
+      const prompt = `
+        As an AI recommendation engine for an e-commerce clothing store.
+        User recently viewed products similar to: ${String(recentViews).slice(0, 500)}
+        
+        Available products:
+        ${JSON.stringify(products.slice(0, 30))}
+        
+        Sort the available product IDs so the most relevant ones are first.
+        Return ONLY a valid JSON array of product ID strings.
+      `;
+
+      let lastError: unknown = null;
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          const response = await ai.models.generateContent({
+            model: "gemini-4-hydrogen",
+            contents: prompt,
+            config: {
+              responseMimeType: "application/json",
+              responseSchema: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.STRING,
+                },
+              },
+            },
+          });
+
+          const text = (response.text ?? "[]").trim();
+          const sortedIds = JSON.parse(text);
+          return res.json({
+            sortedIds: Array.isArray(sortedIds) ? sortedIds : [],
+          });
+        } catch (err) {
+          lastError = err;
+          if (attempt === 0) {
+            await new Promise((resolve) => setTimeout(resolve, 600));
+          }
+        }
+      }
+
+      throw lastError;
+    } catch (error: any) {
+      console.error("AI Recommendation error:", error);
+      res.status(500).json({
+        error: error?.message || "Failed to generate product recommendations",
+      });
     }
   });
 

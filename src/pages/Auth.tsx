@@ -1,16 +1,18 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Navigate } from 'react-router-dom';
-import { signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
-import { auth, db } from '../lib/firebase';
-import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { useAuth } from '../contexts/AuthContext';
-import { Loader2 } from 'lucide-react';
+import { Loader2, AlertCircle } from 'lucide-react';
 
 export const Auth: React.FC = () => {
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, signInWithGoogle, authError, clearAuthError } = useAuth();
+
+  useEffect(() => {
+    return () => {
+      clearAuthError();
+    };
+  }, [clearAuthError]);
 
   if (user) {
     return <Navigate to="/" replace />;
@@ -18,39 +20,10 @@ export const Auth: React.FC = () => {
 
   const handleGoogleSignIn = async () => {
     setLoading(true);
-    setError('');
-
-    try {
-      const provider = new GoogleAuthProvider();
-      const result = await signInWithPopup(auth, provider);
-      const newUser = result.user;
-      
-      // Ensure user is in database
-      const userRef = doc(db, 'users', newUser.uid);
-      const userSnap = await getDoc(userRef);
-      
-      if (!userSnap.exists()) {
-        await setDoc(userRef, {
-          uid: newUser.uid,
-          email: newUser.email,
-          displayName: newUser.displayName || 'User',
-          photoURL: newUser.photoURL || '',
-          role: 'user', // Rules will elevate to superadmin based on email
-          createdAt: new Date()
-        });
-      }
+    const success = await signInWithGoogle();
+    setLoading(false);
+    if (success) {
       navigate('/');
-    } catch (err: any) {
-      console.warn("Auth Error:", err.message);
-      let message = err.message || 'Authentication failed';
-      
-      if (err.code === 'auth/popup-closed-by-user') {
-        message = 'Google Login ተቋርጧል። እባክዎ እንደገና ይሞክሩ።';
-      }
-      
-      setError(message);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -65,10 +38,14 @@ export const Auth: React.FC = () => {
             Please sign in to continue / ለመቀጠል እባክዎ ይግቡ
           </p>
         </div>
-        
-        {error && (
-          <div className="bg-red-50 text-red-600 p-3.5 rounded-xl text-sm leading-relaxed border border-red-100 text-left">
-            {error}
+
+        {authError && (
+          <div
+            role="alert"
+            className="bg-red-50 text-red-700 p-3.5 rounded-xl text-sm leading-relaxed border border-red-200 text-left flex items-start gap-2.5"
+          >
+            <AlertCircle className="w-4 h-4 mt-0.5 shrink-0 text-red-600" />
+            <span>{authError}</span>
           </div>
         )}
 

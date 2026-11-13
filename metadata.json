@@ -1,5 +1,8 @@
 {
   "name": "Clothify",
   "description": "A premium modern clothing e-commerce website.",
-  "requestFramePermissions": []
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
 }

@@ -28,6 +28,8 @@
         },
         "sellerId": { "type": "string", "description": "ID of the seller who uploaded the product" },
         "sellerName": { "type": "string", "description": "Name of the seller" },
+        "isAvailable": { "type": "boolean", "description": "Whether the product is available for purchase" },
+        "status": { "type": "string", "description": "Product availability status (e.g., active, sold)" },
         "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp" }
       },
       "required": ["name", "description", "price", "category", "imageUrl", "sellerId", "createdAt"]
@@ -112,9 +114,11 @@
         "uid": { "type": "string", "description": "Firebase Auth UID" },
         "email": { "type": "string", "description": "User email address" },
         "displayName": { "type": "string", "description": "User display name" },
+        "phoneNumber": { "type": "string", "description": "User phone number" },
         "photoURL": { "type": "string", "description": "User photo URL" },
         "role": { "type": "string", "description": "User role (user, seller, or admin)" },
         "sellerVerified": { "type": "boolean", "description": "Whether the seller is verified" },
+        "sellerInfo": { "type": "object", "description": "Verified seller metadata" },
         "balance": { "type": "number", "description": "Current balance for sellers" },
         "bankInfo": { 
           "type": "object", 
@@ -153,11 +157,16 @@
         "userId": { "type": "string" },
         "userEmail": { "type": "string" },
         "fullName": { "type": "string" },
+        "firstName": { "type": "string" },
+        "fatherName": { "type": "string" },
+        "grandfatherName": { "type": "string" },
         "phoneNumber": { "type": "string" },
         "idFrontUrl": { "type": "string" },
         "idBackUrl": { "type": "string" },
         "status": { "type": "string", "enum": ["Pending", "Approved", "Rejected"] },
-        "createdAt": { "type": "string", "format": "date-time" }
+        "rejectionReason": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "processedAt": { "type": "string", "format": "date-time" }
       },
       "required": ["userId", "fullName", "phoneNumber", "idFrontUrl", "idBackUrl", "status", "createdAt"]
     },
@@ -170,6 +179,19 @@
         "totalSales": { "type": "number" },
         "lastUpdated": { "type": "string", "format": "date-time" }
       }
+    },
+    "Notification": {
+      "title": "Notification",
+      "description": "User notification message",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "message": { "type": "string" },
+        "read": { "type": "boolean" },
+        "type": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "message", "read", "type", "createdAt"]
     }
   },
   "firestore": {
@@ -204,6 +226,10 @@
     "/adminStats/global": {
       "schema": { "$ref": "#/entities/AdminStats" },
       "description": "Global admin statistics"
+    },
+    "/notifications/{notificationId}": {
+      "schema": { "$ref": "#/entities/Notification" },
+      "description": "In-app user notifications"
     }
   }
 }

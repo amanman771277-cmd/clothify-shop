@@ -8,7 +8,6 @@ import { ArrowRight, Sparkles, Filter, TrendingUp, ShieldCheck, DollarSign } fro
 import { motion } from 'motion/react';
 import { useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { GoogleGenAI, Type } from '@google/genai';
 import { getViewHistory } from '../utils/viewHistory';
 
 interface Product {
@@ -71,40 +70,30 @@ export const Home: React.FC = () => {
 
         // AI Recommendation Sorting
         const viewHistory = getViewHistory();
-        if (viewHistory.length > 0) {
+        if (viewHistory.length > 0 && fetched.length > 0) {
           try {
-            const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-            
-            // Limit payload size to prevent proxy 500 errors (Rpc failed due to xhr error)
             const recentViews = viewHistory.slice(0, 5).map(v => v.name).join(', ');
             const productSummary = fetched.slice(0, 30).map(p => ({ id: p.id, name: p.name, category: p.category }));
-            
-            const prompt = `
-              As an AI recommendation engine for an e-commerce clothing store.
-              User recently viewed products similar to: ${recentViews}
-              
-              Available products:
-              ${JSON.stringify(productSummary)}
-              
-              Sort the available product IDs so the most relevant ones are first.
-              Return ONLY a valid JSON array of product ID strings.
-            `;
-            
-            const response = await ai.models.generateContent({
-              model: "gemini-3-flash-preview",
-              contents: prompt,
-              config: {
-                responseMimeType: "application/json"
-              }
+
+            const response = await fetch('/api/recommendations', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ recentViews, products: productSummary }),
             });
-            
-            const sortedIds = JSON.parse(response.text.trim());
-            if (Array.isArray(sortedIds) && sortedIds.length > 0) {
-              setAiSortedProductIds(sortedIds);
-              setSortBy('ai-recommended');
+
+            if (response.ok) {
+              const data = await response.json();
+              const sortedIds = data.sortedIds;
+              if (Array.isArray(sortedIds) && sortedIds.length > 0) {
+                setAiSortedProductIds(sortedIds);
+                setSortBy('ai-recommended');
+              }
+            } else {
+              const errData = await response.json().catch(() => ({}));
+              console.warn('AI Recommendation unavailable:', errData.error || response.statusText);
             }
           } catch (aiError) {
-            console.error("AI Recommendation error:", aiError);
+            console.warn('AI Recommendation unavailable:', aiError);
           }
         }
       } catch (error) {
@@ -189,7 +178,7 @@ export const Home: React.FC = () => {
     }
 
     return result;
-  }, [products, selectedCategory, selectedSize, selectedColor, minPrice, maxPrice, sortBy, aiSortedProductIds]);
+  }, [products, searchQuery, selectedCategory, selectedSize, selectedColor, minPrice, maxPrice, sortBy, aiSortedProductIds]);
 
   const clearFilters = () => {
     setSelectedCategory('All');

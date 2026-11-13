@@ -5,11 +5,13 @@ import { db } from '../lib/firebase';
 import { Loader2, XCircle, CheckCircle } from 'lucide-react';
 
 import { useTranslation } from 'react-i18next';
+import { useAuth } from '../contexts/AuthContext';
 
 export const VerifyPayment: React.FC = () => {
   const { t } = useTranslation();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const { user, loading: authLoading } = useAuth();
   const tx_ref = searchParams.get('tx_ref');
   
   const [status, setStatus] = useState<'verifying' | 'success' | 'failed'>('verifying');
@@ -17,6 +19,7 @@ export const VerifyPayment: React.FC = () => {
 
   useEffect(() => {
     const verifyTransaction = async () => {
+      if (authLoading) return;
       if (!tx_ref) {
         setStatus('failed');
         setErrorMessage(t('payment.missing_ref'));
@@ -29,8 +32,13 @@ export const VerifyPayment: React.FC = () => {
 
         if (data.status === 'success' && data.data?.status === 'success') {
           // Payment successful
-          const q = query(collection(db, 'orders'), where('tx_ref', '==', tx_ref));
-          const snapshot = await getDocs(q);
+          if (user) {
+            const q = query(
+              collection(db, 'orders'),
+              where('tx_ref', '==', tx_ref),
+              where('buyerId', '==', user.uid)
+            );
+            const snapshot = await getDocs(q);
           const updatePromises = snapshot.docs.map(async (docSnap) => {
             const orderData = docSnap.data();
             // Update order status
@@ -62,8 +70,9 @@ export const VerifyPayment: React.FC = () => {
                 type: 'new_sale'
               });
             }
-          });
-          await Promise.all(updatePromises);
+            });
+            await Promise.all(updatePromises);
+          }
           
           setStatus('success');
           setTimeout(() => {
@@ -71,10 +80,16 @@ export const VerifyPayment: React.FC = () => {
           }, 2000);
         } else {
           // Payment failed or pending
-          const q = query(collection(db, 'orders'), where('tx_ref', '==', tx_ref));
-          const snapshot = await getDocs(q);
-          const updatePromises = snapshot.docs.map(docSnap => updateDoc(docSnap.ref, { paymentStatus: 'Failed' }));
-          await Promise.all(updatePromises);
+          if (user) {
+            const q = query(
+              collection(db, 'orders'),
+              where('tx_ref', '==', tx_ref),
+              where('buyerId', '==', user.uid)
+            );
+            const snapshot = await getDocs(q);
+            const updatePromises = snapshot.docs.map(docSnap => updateDoc(docSnap.ref, { paymentStatus: 'Failed' }));
+            await Promise.all(updatePromises);
+          }
           
           setStatus('failed');
           setErrorMessage(data.message || t('payment.failed'));
@@ -87,7 +102,7 @@ export const VerifyPayment: React.FC = () => {
     };
 
     verifyTransaction();
-  }, [tx_ref, navigate, t]);
+  }, [tx_ref, user, authLoading, navigate, t]);
 
   return (
     <div className="min-h-[60vh] flex items-center justify-center px-4">
