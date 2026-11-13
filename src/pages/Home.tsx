@@ -74,6 +74,17 @@ export const Home: React.FC = () => {
           try {
             const recentViews = viewHistory.slice(0, 5).map(v => v.name).join(', ');
             const productSummary = fetched.slice(0, 30).map(p => ({ id: p.id, name: p.name, category: p.category }));
+            const cacheKey = `${recentViews}::${productSummary.map(p => p.id).join(',')}`;
+
+            const cachedRaw = sessionStorage.getItem('clothify_ai_rec_cache_v1');
+            if (cachedRaw) {
+              const parsedCache = JSON.parse(cachedRaw);
+              if (parsedCache?.key === cacheKey && Array.isArray(parsedCache.sortedIds) && parsedCache.sortedIds.length > 0) {
+                setAiSortedProductIds(parsedCache.sortedIds);
+                setSortBy('ai-recommended');
+                return;
+              }
+            }
 
             const response = await fetch('/api/recommendations', {
               method: 'POST',
@@ -87,6 +98,10 @@ export const Home: React.FC = () => {
               if (Array.isArray(sortedIds) && sortedIds.length > 0) {
                 setAiSortedProductIds(sortedIds);
                 setSortBy('ai-recommended');
+                sessionStorage.setItem(
+                  'clothify_ai_rec_cache_v1',
+                  JSON.stringify({ key: cacheKey, sortedIds })
+                );
               }
             } else {
               const errData = await response.json().catch(() => ({}));

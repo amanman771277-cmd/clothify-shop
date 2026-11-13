@@ -6,6 +6,7 @@ import { db } from '../lib/firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { useCart } from '../contexts/CartContext';
 import { LanguageSwitcher } from './LanguageSwitcher';
+import { PWAInstallButton } from './PWAInstallUI';
 import { useTranslation } from 'react-i18next';
 
 export const Navbar: React.FC = () => {
@@ -107,6 +108,7 @@ export const Navbar: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-2">
+            <PWAInstallButton />
             {user && (
               <div className="relative" ref={notificationsRef}>
                 <button 

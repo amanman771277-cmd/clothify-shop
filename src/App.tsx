@@ -1,10 +1,12 @@
 import React, { useEffect } from 'react';
 import { HashRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
+import { PWAProvider } from './contexts/PWAContext';
 import { CartProvider } from './contexts/CartContext';
 import { WishlistProvider } from './contexts/WishlistContext';
 import { CompareProvider } from './contexts/CompareContext';
 import { Navbar } from './components/Navbar';
+import { PWAInstallBanner, OfflineIndicator } from './components/PWAInstallUI';
 import { CartDrawer } from './components/CartDrawer';
 import { Home } from './pages/Home';
 import { Admin } from './pages/Admin';
@@ -40,15 +42,18 @@ export default function App() {
   }, [i18n.language]);
 
   return (
-    <AuthProvider>
-      <WishlistProvider>
-        <CompareProvider>
-          <CartProvider>
-            <Router>
-              <ScrollToTop />
-              <div className="min-h-screen bg-white font-sans text-slate-900 selection:bg-slate-200">
-                <Navbar />
-                <CartDrawer />
+    <PWAProvider>
+      <AuthProvider>
+        <WishlistProvider>
+          <CompareProvider>
+            <CartProvider>
+              <Router>
+                <ScrollToTop />
+                <div className="min-h-screen bg-white font-sans text-slate-900 selection:bg-slate-200">
+                  <Navbar />
+                  <PWAInstallBanner />
+                  <CartDrawer />
+                  <OfflineIndicator />
                 <main>
                   <Routes>
                     <Route path="/" element={<Home />} />
@@ -82,11 +87,12 @@ export default function App() {
                     </p>
                   </div>
                 </footer>
-              </div>
-            </Router>
-          </CartProvider>
-        </CompareProvider>
-      </WishlistProvider>
-    </AuthProvider>
+                </div>
+              </Router>
+            </CartProvider>
+          </CompareProvider>
+        </WishlistProvider>
+      </AuthProvider>
+    </PWAProvider>
   );
 }

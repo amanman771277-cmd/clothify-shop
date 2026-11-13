@@ -200,7 +200,29 @@ async function startServer() {
     }
   });
 
-  // Server-side AI Product Recommendations
+  // Server-side AI Product Recommendations with caching and quota-safe fallback
+  const recommendationCache = new Map<string, { sortedIds: string[]; expiresAt: number }>();
+  let geminiQuotaCooldownUntil = 0;
+
+  function computeLocalRecommendations(recentViews: string, products: Array<{ id: string; name?: string; category?: string }>): string[] {
+    const tokens = String(recentViews)
+      .toLowerCase()
+      .split(/[\s,]+/)
+      .filter((t) => t.length > 2);
+
+    return [...products]
+      .map((p, index) => {
+        const haystack = `${p.name || ''} ${p.category || ''}`.toLowerCase();
+        let score = 0;
+        for (const token of tokens) {
+          if (haystack.includes(token)) score += 2;
+        }
+        return { id: p.id, score, index };
+      })
+      .sort((a, b) => (b.score !== a.score ? b.score - a.score : a.index - b.index))
+      .map((item) => item.id);
+  }
+
   app.post("/api/recommendations", async (req, res) => {
     try {
       const { recentViews, products } = req.body;
@@ -209,8 +231,16 @@ async function startServer() {
         return res.json({ sortedIds: [] });
       }
 
-      if (!process.env.GEMINI_API_KEY) {
-        return res.status(500).json({ error: "GEMINI_API_KEY is not configured on the server." });
+      const trimmedProducts = products.slice(0, 30);
+      const cacheKey = `${String(recentViews).slice(0, 200)}::${trimmedProducts.map((p: any) => p.id).join(',')}`;
+      const cached = recommendationCache.get(cacheKey);
+      if (cached && cached.expiresAt > Date.now()) {
+        return res.json({ sortedIds: cached.sortedIds, source: 'cache' });
+      }
+
+      if (!process.env.GEMINI_API_KEY || Date.now() < geminiQuotaCooldownUntil) {
+        const fallbackIds = computeLocalRecommendations(recentViews, trimmedProducts);
+        return res.json({ sortedIds: fallbackIds, source: 'fallback', quotaExceeded: Date.now() < geminiQuotaCooldownUntil });
       }
 
       const ai = getGeminiClient();
@@ -219,13 +249,13 @@ async function startServer() {
         User recently viewed products similar to: ${String(recentViews).slice(0, 500)}
         
         Available products:
-        ${JSON.stringify(products.slice(0, 30))}
+        ${JSON.stringify(trimmedProducts)}
         
         Sort the available product IDs so the most relevant ones are first.
         Return ONLY a valid JSON array of product ID strings.
       `;
 
-      let lastError: unknown = null;
+      let lastError: any = null;
       for (let attempt = 0; attempt < 2; attempt++) {
         try {
           const response = await ai.models.generateContent({
@@ -243,31 +273,64 @@ async function startServer() {
           });
 
           const text = (response.text ?? "[]").trim();
-          const sortedIds = JSON.parse(text);
-          return res.json({
-            sortedIds: Array.isArray(sortedIds) ? sortedIds : [],
+          const parsed = JSON.parse(text);
+          const sortedIds = Array.isArray(parsed) ? parsed : [];
+
+          recommendationCache.set(cacheKey, {
+            sortedIds,
+            expiresAt: Date.now() + 15 * 60 * 1000,
           });
-        } catch (err) {
+
+          return res.json({ sortedIds, source: 'gemini' });
+        } catch (err: any) {
           lastError = err;
+          const status = err?.status ?? err?.error?.code;
+          const msg = String(err?.message || '');
+          const isQuotaOrClientErr =
+            status === 429 ||
+            status === 400 ||
+            status === 401 ||
+            status === 403 ||
+            status === 404 ||
+            msg.includes('RESOURCE_EXHAUSTED') ||
+            msg.includes('429');
+
+          if (isQuotaOrClientErr) {
+            break;
+          }
+
           if (attempt === 0) {
             await new Promise((resolve) => setTimeout(resolve, 600));
           }
         }
       }
 
+      const status = lastError?.status ?? lastError?.error?.code;
+      const errMsg = String(lastError?.message || '');
+      if (status === 429 || errMsg.includes('RESOURCE_EXHAUSTED') || errMsg.includes('429')) {
+        geminiQuotaCooldownUntil = Date.now() + 30 * 60 * 1000;
+        console.warn("Gemini API daily quota reached (429 RESOURCE_EXHAUSTED); using local relevance ranking fallback.");
+        const fallbackIds = computeLocalRecommendations(recentViews, trimmedProducts);
+        recommendationCache.set(cacheKey, {
+          sortedIds: fallbackIds,
+          expiresAt: Date.now() + 15 * 60 * 1000,
+        });
+        return res.json({ sortedIds: fallbackIds, source: 'fallback', quotaExceeded: true });
+      }
+
       throw lastError;
     } catch (error: any) {
-      console.error("AI Recommendation error:", error);
-      res.status(500).json({
-        error: error?.message || "Failed to generate product recommendations",
-      });
+      console.warn("AI Recommendation fallback triggered:", error?.message || error);
+      const products = Array.isArray(req.body?.products) ? req.body.products.slice(0, 30) : [];
+      const fallbackIds = computeLocalRecommendations(req.body?.recentViews || '', products);
+      return res.json({ sortedIds: fallbackIds, source: 'fallback' });
     }
   });
 
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
-      server: { middlewareMode: true },
+      server: { middlewareMode: true, hmr: false },
       appType: "spa",
     });
     app.use(vite.middlewares);
